@@ -4,9 +4,33 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     Product:
+ *       type: object
+ *       properties:
+ *         title:
+ *           type: string
+ *           example: "Macbook"
+ *         price:
+ *           type: number
+ *           example: 999.9
+ *         author:
+ *           type: object
+ *           properties:
+ *             fullname:
+ *               type: string
+ *               example: "XYFORA AB"
+ *             email:
+ *               type: string
+ *               example: "info@xyfora.se"
+ */
+
+/**
+ * @swagger
  * tags:
- *   name: Products
- *   description: Endpoints for retrieving, updating, and deleting individual products
+ *   - name: Products
+ *     description: Product creation and management
  */
 
 /**
@@ -19,7 +43,7 @@ import { prisma } from "@/lib/prisma";
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: List of products
+ *         description: List of products with author details
  *         content:
  *           application/json:
  *             schema:
@@ -27,7 +51,7 @@ import { prisma } from "@/lib/prisma";
  *               items:
  *                 $ref: "#/components/schemas/Product"
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  */
 
 export async function GET(req: NextRequest) {
@@ -77,23 +101,39 @@ export async function GET(req: NextRequest) {
  *             properties:
  *               title:
  *                 type: string
- *                 example: "My new product"
+ *                 example: "Macbook"
  *               price:
  *                 type: number
- *                 example: 49.99
+ *                 example: 999.9
  *     responses:
  *       201:
  *         description: Product created successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: "#/components/schemas/Product"
+ *               type: object
+ *               properties:
+ *                 title:
+ *                   type: string
+ *                   example: "Macbook"
+ *                 price:
+ *                   type: number
+ *                   example: 999.9
+ *                 author:
+ *                   type: object
+ *                   properties:
+ *                     fullname:
+ *                       type: string
+ *                       example: "XYFORA AB"
+ *                     email:
+ *                       type: string
+ *                       example: "info@xyfora.se"
  *       400:
- *         description: Bad request (missing fields)
+ *         description: Bad request – missing title or price
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 
 export async function POST(req: NextRequest) {

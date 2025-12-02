@@ -5,8 +5,8 @@ import { prisma } from "@/lib/prisma";
 /**
  * @swagger
  * tags:
- *   name: Products
- *   description: Endpoints for retrieving, updating, and deleting individual products
+ *   - name: Products
+ *     description: Product creation and management
  */
 
 /**
@@ -31,11 +31,27 @@ import { prisma } from "@/lib/prisma";
  *         content:
  *           application/json:
  *             schema:
- *               $ref: "#/components/schemas/Product"
+ *               type: object
+ *               properties:
+ *                 title:
+ *                   type: string
+ *                   example: "Macbook"
+ *                 price:
+ *                   type: number
+ *                   example: 999.9
+ *                 author:
+ *                   type: object
+ *                   properties:
+ *                     fullname:
+ *                       type: string
+ *                       example: "XYFORA AB"
+ *                     email:
+ *                       type: string
+ *                       example: "info@xyfora.se"
  *       400:
  *         description: Invalid product ID format
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  *       404:
  *         description: Product not found
  */
@@ -111,23 +127,39 @@ export async function GET(request: NextRequest, context: { params: ParamsPromise
  *             properties:
  *               title:
  *                 type: string
- *                 example: "Updated product title"
+ *                 example: "Macbook Pro"
  *               price:
  *                 type: number
- *                 example: 99.99
+ *                 example: 1599.9
  *     responses:
  *       200:
  *         description: Product updated successfully
  *         content:
  *           application/json:
  *             schema:
- *               $ref: "#/components/schemas/Product"
+ *               type: object
+ *               properties:
+ *                 title:
+ *                   type: string
+ *                   example: "Macbook Pro"
+ *                 price:
+ *                   type: number
+ *                   example: 1599.9
+ *                 author:
+ *                   type: object
+ *                   properties:
+ *                     fullname:
+ *                       type: string
+ *                       example: "XYFORA AB"
+ *                     email:
+ *                       type: string
+ *                       example: "info@xyfora.se"
  *       400:
  *         description: At least one field is required or invalid ID
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  *       403:
- *         description: Forbidden (user is not the author)
+ *         description: Forbidden – user is not the author
  *       404:
  *         description: Product not found
  *       500:
@@ -219,9 +251,9 @@ export async function PUT(request: NextRequest, context: { params: ParamsPromise
  *       400:
  *         description: Invalid product ID format
  *       401:
- *         description: Unauthorized
+ *         description: Unauthorized – missing or invalid token
  *       403:
- *         description: Forbidden (user is not the author)
+ *         description: Forbidden – user is not the author
  *       404:
  *         description: Product not found
  *       500:

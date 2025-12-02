@@ -4,18 +4,33 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: Authentication and user account management
  * /api/auth/me:
  *   get:
- *     tags: [Auth]
- *     summary: Get current logged-in user
- *     description: Requires Bearer JWT token.
+ *     tags:
+ *       - Auth
+ *     summary: Get current authenticated user
+ *     description: Returns the authenticated user's details (id, fullname, email). Requires a valid Bearer JWT token.
  *     security:
  *       - BearerAuth: []
  *     responses:
  *       200:
- *         description: Returns logged-in user's data
+ *         description: Successfully retrieved user information
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 fullname:
+ *                   type: string
+ *                   example: "XYFORA AB"
+ *                 email:
+ *                   type: string
+ *                   example: "info@xyfora.se"
  *       401:
- *         description: Invalid or missing token
+ *         description: Unauthorized – invalid or missing token
  */
 
 export async function GET(req: Request) {

@@ -5,11 +5,15 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: User authentication and account management
  * /api/auth/login:
  *   post:
- *     tags: [Auth]
+ *     tags:
+ *       - Auth
  *     summary: User login
- *     description: Authenticates a user and returns a JWT token.
+ *     description: Authenticates a user and returns a JWT token for authentication.
  *     requestBody:
  *       required: true
  *       content:
@@ -22,10 +26,12 @@ import { prisma } from "@/lib/prisma";
  *             properties:
  *               email:
  *                 type: string
- *                 example: ahmed@example.com
+ *                 format: email
+ *                 example: info@xyfora.se
  *               password:
  *                 type: string
- *                 example: strongpassword123
+ *                 format: password
+ *                 example: StrongPassword123
  *     responses:
  *       200:
  *         description: Login successful
@@ -36,16 +42,19 @@ import { prisma } from "@/lib/prisma";
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "Login successful"
  *                 user:
  *                   $ref: "#/components/schemas/User"
  *                 token:
  *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       401:
  *         description: Invalid credentials
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 
 export async function POST(req: Request) {

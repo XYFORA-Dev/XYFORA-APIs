@@ -9,7 +9,7 @@ export const getApiDocs = async () => {
             info: {
                 title: "XYFORA APIs",
                 version: "1.0.0",
-                description: "REST API documentation for XYFORA web application.",
+                description: "XYFORA delivers robust, high-performance APIs built with Express and Nest.js to support websites, web apps, and e-commerce platforms.",
                 contact: {
                     name: "XYFORA",
                     email: "info@xyfora.se",
@@ -24,18 +24,17 @@ export const getApiDocs = async () => {
                     },
                 },
             },
-            security: [{ BearerAuth: [] }],
             tags: [
                 {
                     name: "Auth",
-                    description: "Endpoints for user authentication, registration, and session management."
+                    description: "User authentication and account management."
                 },
                 {
                     name: "Products",
-                    description: "Endpoints for creating, retrieving, and managing products."
+                    description: "Product creation and management."
                 }
             ]
-        },
+        }
     });
 
     return spec;

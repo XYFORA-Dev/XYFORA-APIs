@@ -5,11 +5,35 @@ import { prisma } from "@/lib/prisma";
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       properties:
+ *         fullname:
+ *           type: string
+ *           example: "XYFORA AB"
+ *         email:
+ *           type: string
+ *           format: email
+ *           example: "info@xyfora.se"
+ *         password:
+ *           type: string
+ *           format: password
+ *           example: "*******"
+ */
+
+/**
+ * @swagger
+ * tags:
+ *   - name: Auth
+ *     description: User authentication and account management
  * /api/auth/register:
  *   post:
- *     tags: [Auth]
+ *     tags:
+ *       - Auth
  *     summary: Register a new user
- *     description: Creates a new user account and returns a JWT token.
+ *     description: Creates a new user account and returns a JWT token for authentication.
  *     requestBody:
  *       required: true
  *       content:
@@ -23,13 +47,15 @@ import { prisma } from "@/lib/prisma";
  *             properties:
  *               fullname:
  *                 type: string
- *                 example: Ahmed Saleem
+ *                 example: XYFORA AB
  *               email:
  *                 type: string
- *                 example: ahmed@example.com
+ *                 format: email
+ *                 example: info@xyfora.se
  *               password:
  *                 type: string
- *                 example: strongpassword123
+ *                 format: password
+ *                 example: StrongPassword123
  *     responses:
  *       201:
  *         description: User registered successfully
@@ -40,16 +66,19 @@ import { prisma } from "@/lib/prisma";
  *               properties:
  *                 success:
  *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
+ *                   example: "User registered successfully"
  *                 user:
  *                   $ref: "#/components/schemas/User"
  *                 token:
  *                   type: string
+ *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       400:
  *         description: Missing fields or user already exists
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 
 export async function POST(req: Request) {
