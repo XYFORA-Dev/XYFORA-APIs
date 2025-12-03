@@ -1,30 +1,7 @@
 import { getCurrentUserId, unauthorized } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     Product:
- *       type: object
- *       properties:
- *         title:
- *           type: string
- *           example: "Macbook"
- *         price:
- *           type: number
- *           example: 999.9
- *         author:
- *           type: object
- *           properties:
- *             fullname:
- *               type: string
- *               example: "XYFORA AB"
- *             email:
- *               type: string
- *               example: "info@xyfora.se"
- */
+import { connectDB } from "@/lib/mongoose";
+import Product from "@/models/Product";
 
 /**
  * @swagger
@@ -37,47 +14,63 @@ import { prisma } from "@/lib/prisma";
  * @swagger
  * /api/products:
  *   get:
- *     summary: Get all products of the current user
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
+ *     tags:
+ *       - Products
+ *     summary: Get all products of the authenticated user
+ *     description: Returns a list of all products created by the authenticated user.
  *     responses:
  *       200:
- *         description: List of products with author details
+ *         description: List of products retrieved successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: array
  *               items:
- *                 $ref: "#/components/schemas/Product"
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     example: "675a3c92f1a3b9b529c7e312"
+ *                   title:
+ *                     type: string
+ *                     example: "Macbook"
+ *                   price:
+ *                     type: number
+ *                     example: 999.9
+ *                   author:
+ *                     type: object
+ *                     properties:
+ *                       fullname:
+ *                         type: string
+ *                         example: "XYFORA AB"
+ *                       email:
+ *                         type: string
+ *                         example: "info@xyfora.se"
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *                     example: "2025-01-02T12:45:30.000Z"
+ *                   updatedAt:
+ *                     type: string
+ *                     format: date-time
+ *                     example: "2025-01-02T12:45:30.000Z"
  *       401:
- *         description: Unauthorized – missing or invalid token
+ *         description: Unauthorized — missing or invalid token
+ *       500:
+ *         description: Internal server error
  */
 
 export async function GET(req: NextRequest) {
+
+    await connectDB();
 
     const userId = getCurrentUserId(req);
 
     if (!userId) return unauthorized();
 
-    const products = await prisma.product.findMany({
-        where: {
-            authorId: userId
-        },
-        include: {
-            author: {
-                select: {
-                    fullname: true,
-                    email: true
-                }
-            }
-        },
-        orderBy: {
-            createdAt: "desc"
-        }
-    });
+    const products = await Product.find({ author: userId }).populate("author", "fullname email").sort({ createdAt: -1 });
 
-    return NextResponse.json(products);
+    return NextResponse.json(products, { status: 200 });
 
 };
 
@@ -85,10 +78,10 @@ export async function GET(req: NextRequest) {
  * @swagger
  * /api/products:
  *   post:
+ *     tags:
+ *       - Products
  *     summary: Create a new product
- *     tags: [Products]
- *     security:
- *       - BearerAuth: []
+ *     description: Adds a new product for the authenticated user.
  *     requestBody:
  *       required: true
  *       content:
@@ -98,6 +91,7 @@ export async function GET(req: NextRequest) {
  *             required:
  *               - title
  *               - price
+ *               - author
  *             properties:
  *               title:
  *                 type: string
@@ -105,38 +99,30 @@ export async function GET(req: NextRequest) {
  *               price:
  *                 type: number
  *                 example: 999.9
+ *               author:
+ *                 type: object
+ *                 properties:
+ *                   fullname:
+ *                     type: string
+ *                     example: "XYFORA AB"
+ *                   email:
+ *                     type: string
+ *                     format: email
+ *                     example: "info@xyfora.se"
  *     responses:
  *       201:
  *         description: Product created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 title:
- *                   type: string
- *                   example: "Macbook"
- *                 price:
- *                   type: number
- *                   example: 999.9
- *                 author:
- *                   type: object
- *                   properties:
- *                     fullname:
- *                       type: string
- *                       example: "XYFORA AB"
- *                     email:
- *                       type: string
- *                       example: "info@xyfora.se"
  *       400:
- *         description: Bad request – missing title or price
+ *         description: Missing fields or invalid input
  *       401:
- *         description: Unauthorized – missing or invalid token
+ *         description: Unauthorized — missing or invalid token
  *       500:
  *         description: Internal server error
  */
 
 export async function POST(req: NextRequest) {
+
+    await connectDB();
 
     const userId = getCurrentUserId(req);
 
@@ -146,41 +132,25 @@ export async function POST(req: NextRequest) {
 
         const { title, price } = await req.json();
 
-        if (!title || price === undefined) {
+        if (!title || price === undefined)
 
-            return NextResponse.json(
-                { error: "Title and price are required" },
-                { status: 400 }
-            );
+            return NextResponse.json({ error: "Title and price are required" }, { status: 400 });
 
-        }
-
-        const product = await prisma.product.create({
-            data: {
-                title,
-                price: Number(price),
-                authorId: userId
-            },
-            include: {
-                author: {
-                    select: {
-                        fullname: true,
-                        email: true
-                    }
-                }
-            }
+        const product = await Product.create({
+            title,
+            price: Number(price),
+            author: userId
         });
 
-        return NextResponse.json(product, { status: 201 });
+        const populated = await product.populate("author", "fullname email");
 
-    } catch (error: any) {
+        return NextResponse.json(populated, { status: 201 });
 
-        console.error("Product create error:", error);
+    } catch (err) {
 
-        return NextResponse.json(
-            { error: "Failed to create product" },
-            { status: 500 }
-        );
+        console.error("POST product error:", err);
+
+        return NextResponse.json({ error: "Failed to create product" }, { status: 500 });
 
     }
 

@@ -1,27 +1,8 @@
 import { hashPassword } from "@/lib/bcrypt";
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongoose";
 import { signToken } from "@/lib/jwt";
-import { prisma } from "@/lib/prisma";
-
-/**
- * @swagger
- * components:
- *   schemas:
- *     User:
- *       type: object
- *       properties:
- *         fullname:
- *           type: string
- *           example: "XYFORA AB"
- *         email:
- *           type: string
- *           format: email
- *           example: "info@xyfora.se"
- *         password:
- *           type: string
- *           format: password
- *           example: "*******"
- */
+import User from "@/models/User";
 
 /**
  * @swagger
@@ -59,22 +40,6 @@ import { prisma } from "@/lib/prisma";
  *     responses:
  *       201:
  *         description: User registered successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "User registered successfully"
- *                 user:
- *                   $ref: "#/components/schemas/User"
- *                 token:
- *                   type: string
- *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
  *       400:
  *         description: Missing fields or user already exists
  *       500:
@@ -83,40 +48,54 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
 
-    const { fullname, email, password } = await req.json();
+    await connectDB();
 
-    if (!fullname || !email || !password) {
+    try {
 
-        return NextResponse.json({ message: "All fields are required" }, { status: 400 });
+        const { fullname, email, password } = await req.json();
 
-    }
+        if (!fullname || !email || !password) {
 
-    const existingUser = await prisma.user.findUnique({ where: { email } });
+            return NextResponse.json(
+                { message: "All fields are required" },
+                { status: 400 }
+            );
 
-    if (existingUser) {
+        }
 
-        return NextResponse.json({ message: "User already exists" }, { status: 400 });
+        const existingUser = await User.findOne({ email });
 
-    }
+        if (existingUser) {
 
-    const hashed = await hashPassword(password);
+            return NextResponse.json(
+                { message: "User already exists" },
+                { status: 400 }
+            );
 
-    const user = await prisma.user.create({
-        data: {
+        }
+
+        const hashed = await hashPassword(password);
+
+        const user = await User.create({
             fullname,
             email,
             password: hashed
-        },
-        select: {
-            id: true,
-            fullname: true,
-            email: true
-        }
-    });
+        });
 
-    return NextResponse.json({
-        ...user,
-        token: signToken(user.id),
-    });
+        return NextResponse.json({
+            id: user._id,
+            fullname: user.fullname,
+            email: user.email,
+            token: signToken(user._id.toString()),
+        }, { status: 201 });
+
+    } catch (error) {
+
+        return NextResponse.json(
+            { message: "Internal server error", error },
+            { status: 500 }
+        );
+
+    }
 
 };

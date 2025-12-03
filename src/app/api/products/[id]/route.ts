@@ -1,6 +1,7 @@
 import { forbidden, getCurrentUserId, isValidMongoId, sanitizeId, unauthorized } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { connectDB } from "@/lib/mongoose";
+import Product from "@/models/Product";
 
 /**
  * @swagger
@@ -13,26 +14,31 @@ import { prisma } from "@/lib/prisma";
  * @swagger
  * /api/products/{id}:
  *   get:
+ *     tags:
+ *       - Products
  *     summary: Get a single product by ID
- *     tags: [Products]
+ *     description: Fetches a product by its MongoDB ObjectId and returns the populated author details.
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - name: id
  *         in: path
- *         description: MongoDB ObjectId of the product
  *         required: true
+ *         description: Valid MongoDB ObjectId
  *         schema:
  *           type: string
- *           example: "64f3b2c4e1234567890abcde"
+ *           example: "675a3c92f1a3b9b529c7e312"
  *     responses:
  *       200:
- *         description: Product found
+ *         description: Product found successfully
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "675a3c92f1a3b9b529c7e312"
  *                 title:
  *                   type: string
  *                   example: "Macbook"
@@ -48,53 +54,41 @@ import { prisma } from "@/lib/prisma";
  *                     email:
  *                       type: string
  *                       example: "info@xyfora.se"
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
  *       400:
  *         description: Invalid product ID format
- *       401:
- *         description: Unauthorized – missing or invalid token
  *       404:
  *         description: Product not found
+ *       500:
+ *         description: Internal server error
  */
 
-type ParamsPromise = Promise<{ id: string }>;
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
 
-export async function GET(request: NextRequest, context: { params: ParamsPromise }) {
+    await connectDB();
 
     const { id: rawId } = await context.params;
 
     const id = sanitizeId(rawId);
 
-    if (!isValidMongoId(id)) {
-
-        return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
-
-    }
+    if (!isValidMongoId(id)) return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
 
     try {
 
-        const product = await prisma.product.findUnique({
-            where: { id },
-            include: {
-                author: {
-                    select: {
-                        fullname: true,
-                        email: true
-                    }
-                }
-            }
-        });
+        const product = await Product.findById(id).populate("author", "fullname email");
 
-        if (!product) {
+        if (!product) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-            return NextResponse.json({ error: "Product not found" }, { status: 404 });
+        return NextResponse.json(product, { status: 200 });
 
-        }
+    } catch (err) {
 
-        return NextResponse.json(product);
-
-    } catch (error) {
-
-        console.error("GET /products/[id] error:", error);
+        console.error("GET product error:", err);
 
         return NextResponse.json({ error: "Failed to fetch product" }, { status: 500 });
 
@@ -106,18 +100,20 @@ export async function GET(request: NextRequest, context: { params: ParamsPromise
  * @swagger
  * /api/products/{id}:
  *   put:
- *     summary: Update a product (title and/or price)
- *     tags: [Products]
+ *     tags:
+ *       - Products
+ *     summary: Update a product
+ *     description: Updates the title or price of a product. Only the product owner can update.
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - name: id
  *         in: path
- *         description: MongoDB ObjectId of the product
  *         required: true
+ *         description: MongoDB ObjectId
  *         schema:
  *           type: string
- *           example: "64f3b2c4e1234567890abcde"
+ *           example: "675a3c92f1a3b9b529c7e312"
  *     requestBody:
  *       required: true
  *       content:
@@ -127,10 +123,10 @@ export async function GET(request: NextRequest, context: { params: ParamsPromise
  *             properties:
  *               title:
  *                 type: string
- *                 example: "Macbook Pro"
+ *                 example: "Updated Macbook"
  *               price:
  *                 type: number
- *                 example: 1599.9
+ *                 example: 1099.99
  *     responses:
  *       200:
  *         description: Product updated successfully
@@ -139,12 +135,15 @@ export async function GET(request: NextRequest, context: { params: ParamsPromise
  *             schema:
  *               type: object
  *               properties:
+ *                 id:
+ *                   type: string
+ *                   example: "675a3c92f1a3b9b529c7e312"
  *                 title:
  *                   type: string
- *                   example: "Macbook Pro"
+ *                   example: "Updated Macbook"
  *                 price:
  *                   type: number
- *                   example: 1599.9
+ *                   example: 1099.99
  *                 author:
  *                   type: object
  *                   properties:
@@ -154,74 +153,61 @@ export async function GET(request: NextRequest, context: { params: ParamsPromise
  *                     email:
  *                       type: string
  *                       example: "info@xyfora.se"
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 updatedAt:
+ *                   type: string
+ *                   format: date-time
  *       400:
- *         description: At least one field is required or invalid ID
- *       401:
- *         description: Unauthorized – missing or invalid token
+ *         description: Invalid input or ID
  *       403:
- *         description: Forbidden – user is not the author
+ *         description: Forbidden — not the owner
  *       404:
  *         description: Product not found
  *       500:
- *         description: Server error
+ *         description: Failed to update product
  */
 
-export async function PUT(request: NextRequest, context: { params: ParamsPromise }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+
+    await connectDB();
 
     const { id: rawId } = await context.params;
 
     const id = sanitizeId(rawId);
 
-    const userId = getCurrentUserId(request);
+    const userId = getCurrentUserId(req);
 
     if (!userId) return unauthorized();
 
-    if (!isValidMongoId(id)) {
-
-        return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
-
-    }
+    if (!isValidMongoId(id)) return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
 
     try {
 
-        const { title, price } = await request.json();
+        const { title, price } = await req.json();
 
-        if (!title && price === undefined) {
+        if (!title && price === undefined) return NextResponse.json({ error: "At least one field required" }, { status: 400 });
 
-            return NextResponse.json({ error: "At least one field is required" }, { status: 400 });
-
-        }
-
-        const existing = await prisma.product.findUnique({
-            where: { id },
-            select: { authorId: true }
-        });
+        const existing = await Product.findById(id);
 
         if (!existing) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-        if (existing.authorId !== userId) return forbidden();
+        if (existing.author.toString() !== userId) return forbidden();
 
-        const updated = await prisma.product.update({
-            where: { id },
-            data: {
-                title: title?.trim(),
-                price: price !== undefined ? Number(price) : undefined
-            },
-            include: {
-                author: {
-                    select: {
-                        fullname: true,
-                        email: true
-                    }
-                }
-            }
-        });
+        if (title) existing.title = title.trim();
 
-        return NextResponse.json(updated);
+        if (price !== undefined) existing.price = Number(price);
 
-    } catch (error) {
+        await existing.save();
 
-        console.error("PUT error:", error);
+        const updated = await Product.findById(id).populate("author", "fullname email");
+
+        return NextResponse.json(updated, { status: 200 });
+
+    } catch (err) {
+
+        console.error("PUT error:", err);
 
         return NextResponse.json({ error: "Failed to update product" }, { status: 500 });
 
@@ -233,67 +219,65 @@ export async function PUT(request: NextRequest, context: { params: ParamsPromise
  * @swagger
  * /api/products/{id}:
  *   delete:
- *     summary: Delete a product by ID
- *     tags: [Products]
+ *     tags:
+ *       - Products
+ *     summary: Delete a product
+ *     description: Deletes a product permanently. Only the product owner can delete.
  *     security:
  *       - BearerAuth: []
  *     parameters:
  *       - name: id
  *         in: path
- *         description: MongoDB ObjectId of the product
  *         required: true
+ *         description: MongoDB ObjectId
  *         schema:
  *           type: string
- *           example: "64f3b2c4e1234567890abcde"
+ *           example: "675a3c92f1a3b9b529c7e312"
  *     responses:
  *       204:
- *         description: Product deleted successfully (No Content)
+ *         description: Product deleted successfully (no content)
  *       400:
- *         description: Invalid product ID format
- *       401:
- *         description: Unauthorized – missing or invalid token
+ *         description: Invalid ID format
  *       403:
- *         description: Forbidden – user is not the author
+ *         description: Forbidden — not owner
  *       404:
  *         description: Product not found
  *       500:
- *         description: Server error
+ *         description: Failed to delete product
  */
 
-export async function DELETE(request: NextRequest, context: { params: ParamsPromise }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+
+    await connectDB();
 
     const { id: rawId } = await context.params;
 
     const id = sanitizeId(rawId);
 
-    const userId = getCurrentUserId(request);
+    const userId = getCurrentUserId(req);
 
     if (!userId) return unauthorized();
 
-    if (!isValidMongoId(id)) {
-
-        return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
-
-    }
+    if (!isValidMongoId(id)) return NextResponse.json({ error: "Invalid product ID format" }, { status: 400 });
 
     try {
 
-        const existing = await prisma.product.findUnique({
-            where: { id },
-            select: { authorId: true }
-        });
+        const existing = await Product.findById(id);
 
         if (!existing) return NextResponse.json({ error: "Product not found" }, { status: 404 });
 
-        if (existing.authorId !== userId) return forbidden();
+        if (existing.author.toString() !== userId) return forbidden();
 
-        await prisma.product.delete({ where: { id } });
+        await Product.findByIdAndDelete(id);
 
-        return new NextResponse(null, { status: 204 });
+        return NextResponse.json(
+            { message: "Product deleted successfully" },
+            { status: 200 }
+        );
 
-    } catch (error) {
+    } catch (err) {
 
-        console.error("DELETE error:", error);
+        console.error("DELETE error:", err);
 
         return NextResponse.json({ error: "Failed to delete product" }, { status: 500 });
 

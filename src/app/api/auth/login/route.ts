@@ -1,13 +1,11 @@
 import { comparePassword } from "@/lib/bcrypt";
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongoose";
 import { signToken } from "@/lib/jwt";
-import { prisma } from "@/lib/prisma";
+import User from "@/models/User";
 
 /**
  * @swagger
- * tags:
- *   - name: Auth
- *     description: User authentication and account management
  * /api/auth/login:
  *   post:
  *     tags:
@@ -27,11 +25,11 @@ import { prisma } from "@/lib/prisma";
  *               email:
  *                 type: string
  *                 format: email
- *                 example: info@xyfora.se
+ *                 example: "info@xyfora.se"
  *               password:
  *                 type: string
  *                 format: password
- *                 example: StrongPassword123
+ *                 example: "StrongPassword123"
  *     responses:
  *       200:
  *         description: Login successful
@@ -59,23 +57,37 @@ import { prisma } from "@/lib/prisma";
 
 export async function POST(req: Request) {
 
-    const { email, password } = await req.json();
+    await connectDB();
 
-    const user = await prisma.user.findUnique({
-        where: { email }
-    });
+    try {
 
-    if (!user || !(await comparePassword(password, user.password))) {
+        const { email, password } = await req.json();
 
-        return NextResponse.json({ message: "Invalid credentials" }, { status: 401 });
+        const user = await User.findOne({ email });
+
+        if (!user || !(await comparePassword(password, user.password))) {
+
+            return NextResponse.json(
+                { message: "Invalid credentials" },
+                { status: 401 }
+            );
+
+        }
+
+        return NextResponse.json({
+            id: user._id,
+            fullname: user.fullname,
+            email: user.email,
+            token: signToken(user._id.toString()),
+        }, { status: 200 });
+
+    } catch (error) {
+
+        return NextResponse.json(
+            { message: "Internal server error", error },
+            { status: 500 }
+        );
 
     }
-
-    return NextResponse.json({
-        id: user.id,
-        fullname: user.fullname,
-        email: user.email,
-        token: signToken(user.id)
-    });
 
 };

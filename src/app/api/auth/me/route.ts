@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
+import { connectDB } from "@/lib/mongoose";
 import { verifyToken } from "@/lib/jwt";
-import { prisma } from "@/lib/prisma";
+import User from "@/models/User";
 
 /**
  * @swagger
- * tags:
- *   - name: Auth
- *     description: Authentication and user account management
  * /api/auth/me:
  *   get:
  *     tags:
@@ -18,22 +16,15 @@ import { prisma } from "@/lib/prisma";
  *     responses:
  *       200:
  *         description: Successfully retrieved user information
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 fullname:
- *                   type: string
- *                   example: "XYFORA AB"
- *                 email:
- *                   type: string
- *                   example: "info@xyfora.se"
  *       401:
  *         description: Unauthorized – invalid or missing token
+ *       500:
+ *         description: Internal server error
  */
 
 export async function GET(req: Request) {
+
+    await connectDB();
 
     const authHeader = req.headers.get("authorization");
 
@@ -49,18 +40,11 @@ export async function GET(req: Request) {
 
         const { id } = verifyToken(token);
 
-        const user = await prisma.user.findUnique({
-            where: { id },
-            select: {
-                id: true,
-                fullname: true,
-                email: true
-            }
-        });
+        const user = await User.findById(id).select("fullname email");
 
-        if (!user) throw new Error();
+        if (!user) return NextResponse.json({ message: "User not found" }, { status: 404 });
 
-        return NextResponse.json(user);
+        return NextResponse.json(user, { status: 200 });
 
     } catch {
 

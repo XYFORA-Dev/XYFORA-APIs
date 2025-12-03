@@ -15,7 +15,7 @@ export const getCurrentUserId = (req: NextRequest): string | null => {
 
         return id;
 
-    } catch (error) {
+    } catch {
 
         return null;
 
@@ -25,8 +25,11 @@ export const getCurrentUserId = (req: NextRequest): string | null => {
 
 export const unauthorized = () => NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-export const sanitizeId = (id: string) => id.trim().replace(/[""]/g, "");
+export const forbidden = () => NextResponse.json(
+    { error: "You can only modify your own products" },
+    { status: 403 }
+);
 
-export const isValidMongoId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+export const sanitizeId = (id: string): string => id.trim().replace(/[""]/g, "");
 
-export const forbidden = () => NextResponse.json({ error: "You can only modify your own products" }, { status: 403 });
+export const isValidMongoId = (id: string): boolean => /^[0-9a-fA-F]{24}$/.test(id);
